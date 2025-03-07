@@ -4,7 +4,7 @@ transformers
 torch
 torchvision
 deepface
-opencv-python
+opencv-python-headless  # ✅ Fixes the OpenCV libGL issue
 numpy
 requests
 python-dotenv
