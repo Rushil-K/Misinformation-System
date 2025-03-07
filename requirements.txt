@@ -1,10 +1,10 @@
 streamlit
+transformers
 torch
 torchvision
-numpy
 tensorflow
-transformers
-Pillow
-requests
-opencv-python
 keras
+opencv-python
+numpy
+google-api-python-client
+python-dotenv
