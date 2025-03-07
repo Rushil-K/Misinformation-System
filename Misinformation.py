@@ -40,7 +40,7 @@ def analyze_text(text):
     return "Reliable" if prediction < 0.5 else "Misleading"
 
 # Google Fact Check API Integration
-API_KEY = "YOUR_GOOGLE_FACT_CHECK_API_KEY"
+API_KEY = "AIzaSyAFGhCD-sBz5RhmZ8v7I3iMomAKXApzHS8"
 
 def get_fact_check_results(query):
     url = f"https://factchecktools.googleapis.com/v1alpha1/claims:search?query={query}&key={API_KEY}"
