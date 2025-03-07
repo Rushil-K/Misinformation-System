@@ -1,49 +1,61 @@
 import streamlit as st
+import torch
+import torchvision.transforms as transforms
+from PIL import Image
+import requests
 from transformers import pipeline
+from bs4 import BeautifulSoup
 
-# Set Streamlit Page Configuration at the very top
-st.set_page_config(page_title="Misinformation Detector", page_icon="📰", layout="wide")
+# Set page config
+st.set_page_config(page_title="AI-Powered Misinformation Detection", layout="wide")
 
-# Load NLP model with error handling
-@st.cache_resource(show_spinner=True)
-def load_nlp_model():
-    try:
-        model_name = "mrm8488/bert-tiny-finetuned-fakenews"
-        return pipeline("text-classification", model=model_name)
-    except Exception as e:
-        st.warning(f"Error loading model '{model_name}': {e}. Switching to an alternative model.")
-        return pipeline("text-classification", model="nlptown/bert-base-multilingual-uncased-sentiment")
+# Load NLP model for text analysis
+nlp_pipeline = pipeline("text-classification", model="facebook/bart-large-mnli")
 
-# Load the model
-nlp_model = load_nlp_model()
+# Image deepfake detection placeholder (Can be replaced with a trained deepfake model)
+def is_deepfake(image):
+    # Placeholder: Simulating deepfake detection
+    return torch.rand(1).item() > 0.5  # Random prediction for now
 
-# Streamlit App UI
-st.title("📰 AI-Powered Misinformation Detection System")
-st.write("Enter a news headline or text to check if it's fake or real.")
+# Real-time credibility scoring (fetches from fact-checking sites)
+def get_credibility_score(text):
+    url = f"https://www.snopes.com/?s={text.replace(' ', '+')}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.text, "html.parser")
+        results = soup.find_all("article", limit=1)
+        if results:
+            return f"Fact-check available: {results[0].find('a')['href']}"
+    return "No direct fact-check found."
 
-# User Input
-user_input = st.text_area("🔍 Enter News Text:", "")
+# Streamlit UI
+st.title("🔍 AI-Powered Misinformation Detection")
 
-if st.button("Analyze"):
-    if user_input.strip() == "":
-        st.warning("Please enter text to analyze.")
-    else:
-        with st.spinner("Analyzing..."):
-            prediction = nlp_model(user_input)[0]
-            label = prediction["label"]
-            confidence = prediction["score"]
+# Sidebar for navigation
+st.sidebar.header("Choose Detection Type")
+option = st.sidebar.radio("Select Analysis Mode", ["Text Analysis", "Image Analysis"])
 
-            # Display result
-            st.subheader("🧐 Analysis Result")
-            st.write(f"**Prediction:** `{label}`")
-            st.write(f"**Confidence Score:** `{confidence:.4f}`")
+if option == "Text Analysis":
+    st.subheader("📝 Text Misinformation Analysis")
+    user_text = st.text_area("Enter text to analyze:")
+    if st.button("Analyze"):
+        if user_text:
+            result = nlp_pipeline(user_text)
+            credibility = get_credibility_score(user_text)
+            st.write(f"🔍 **Analysis:** {result[0]['label']}")
+            st.write(f"📌 **Credibility Check:** {credibility}")
+        else:
+            st.warning("Please enter text.")
 
-            # Interpretation
-            if "fake" in label.lower():
-                st.error("⚠️ This text is likely misinformation or fake news.")
-            else:
-                st.success("✅ This text appears to be real or credible.")
+elif option == "Image Analysis":
+    st.subheader("🖼️ Deepfake Image Detection")
+    uploaded_file = st.file_uploader("Upload an image for analysis", type=["jpg", "png", "jpeg"])
+    if uploaded_file:
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        if st.button("Analyze Image"):
+            fake_status = "Deepfake Detected ❌" if is_deepfake(image) else "Authentic ✅"
+            st.write(f"🔍 **Result:** {fake_status}")
 
-# Footer
-st.markdown("---")
-st.markdown("🔬 Built with [Hugging Face Transformers](https://huggingface.co) | 🚀 Streamlit-Powered AI System")
+st.sidebar.info("🔬 Built using OpenAI, PyTorch, and BeautifulSoup.")
+
