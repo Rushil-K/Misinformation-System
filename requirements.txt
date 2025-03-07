@@ -1,0 +1,12 @@
+streamlit
+transformers
+torch
+torchvision
+fastapi
+uvicorn
+beautifulsoup4
+requests
+opencv-python
+numpy
+pandas
+Pillow
