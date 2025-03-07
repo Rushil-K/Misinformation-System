@@ -6,8 +6,7 @@ torchvision
 torchaudio
 tensorflow_hub
 tensorflow_text
-scikit-learn
-opencv-python
+scikit-learnopencv-python-headless
 numpy
 pandas
 requests
