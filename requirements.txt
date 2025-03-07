@@ -1,12 +1,10 @@
 streamlit
-transformers
 torch
 torchvision
-fastapi
-uvicorn
-beautifulsoup4
-requests
-opencv-python-headless
 numpy
-pandas
+tensorflow
+transformers
 Pillow
+requests
+opencv-python
+keras
