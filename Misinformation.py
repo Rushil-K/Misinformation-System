@@ -1,12 +1,8 @@
 import streamlit as st
-import asyncio
 from transformers import pipeline
 
-# Fix asyncio RuntimeError: no running event loop
-try:
-    asyncio.get_running_loop()
-except RuntimeError:
-    asyncio.run(asyncio.sleep(0))
+# Set Streamlit Page Configuration at the very top
+st.set_page_config(page_title="Misinformation Detector", page_icon="📰", layout="wide")
 
 # Load NLP model with error handling
 @st.cache_resource(show_spinner=True)
@@ -22,8 +18,6 @@ def load_nlp_model():
 nlp_model = load_nlp_model()
 
 # Streamlit App UI
-st.set_page_config(page_title="Misinformation Detector", page_icon="📰", layout="wide")
-
 st.title("📰 AI-Powered Misinformation Detection System")
 st.write("Enter a news headline or text to check if it's fake or real.")
 
@@ -53,4 +47,3 @@ if st.button("Analyze"):
 # Footer
 st.markdown("---")
 st.markdown("🔬 Built with [Hugging Face Transformers](https://huggingface.co) | 🚀 Streamlit-Powered AI System")
-
