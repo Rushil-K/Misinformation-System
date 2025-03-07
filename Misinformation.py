@@ -1,17 +1,26 @@
 import streamlit as st
 import requests
 import torch
-import cv2
+import asyncio
 import numpy as np
+import cv2
 from transformers import pipeline
 from bs4 import BeautifulSoup
 from PIL import Image
 from torchvision import transforms
 
 # ============================== #
+#        Async Event Loop Fix    #
+# ============================== #
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+# ============================== #
 #       Load NLP Fake News Model #
 # ============================== #
-st.title("AI-Powered Misinformation Detection System")
+st.title("🛡️ AI-Powered Misinformation Detection")
 
 @st.cache_resource
 def load_nlp_model():
@@ -81,36 +90,35 @@ def check_fact_via_web_scraping(query):
 # ============================== #
 
 # 1️⃣ **Fake News Detection (Text)**
-st.subheader("Check Text for Fake News")
+st.subheader("📢 Check Text for Fake News")
 text_input = st.text_area("Enter news text here:")
 if st.button("Analyze Text"):
     if text_input:
         result = predict_fake_news(text_input)
-        st.write(f"Prediction: {result['label']} (Confidence: {result['confidence']:.2f})")
+        st.write(f"🔍 Prediction: {result['label']} (Confidence: {result['confidence']:.2f})")
     else:
-        st.write("Please enter text to analyze.")
+        st.write("⚠️ Please enter text to analyze.")
 
 # 2️⃣ **Deepfake Image Detection**
-st.subheader("Upload Image for Deepfake Detection")
+st.subheader("🖼️ Upload Image for Deepfake Detection")
 image_file = st.file_uploader("Upload an image", type=["jpg", "png"])
 if image_file and st.button("Analyze Image"):
     with open("temp.jpg", "wb") as f:
         f.write(image_file.read())
     result = detect_deepfake("temp.jpg")
-    st.write(f"Prediction: {result['label']} (Confidence: {result['confidence']:.2f})")
+    st.write(f"🛑 Prediction: {result['label']} (Confidence: {result['confidence']:.2f})")
 
 # 3️⃣ **Real-Time Credibility Scoring**
-st.subheader("Fact-Check News Headlines")
+st.subheader("🌐 Fact-Check News Headlines")
 query = st.text_input("Enter a news headline:")
 if st.button("Verify Credibility"):
     google_results = check_fact_via_google_factcheck(query)
     scraped_results = check_fact_via_web_scraping(query)
 
-    st.write("🔎 **Fact-Checked Articles:**")
+    st.write("✅ **Fact-Checked Articles:**")
     for res in google_results:
         st.write(f"- {res['text']} **({res['rating']})**")
 
-    st.write("🌍 **News Sources:**")
+    st.write("🔎 **News Sources:**")
     for article in scraped_results:
         st.write(f"- {article}")
-
