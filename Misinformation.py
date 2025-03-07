@@ -1,61 +1,117 @@
 import streamlit as st
 import torch
 import torchvision.transforms as transforms
+import numpy as np
 from PIL import Image
 import requests
-from transformers import pipeline
-from bs4 import BeautifulSoup
+import json
+import tensorflow as tf
+from transformers import BertTokenizer, TFBertModel
+from keras.preprocessing.sequence import pad_sequences
+import cv2
 
-# Set page config
-st.set_page_config(page_title="AI-Powered Misinformation Detection", layout="wide")
+# Set Streamlit Page Config
+st.set_page_config(page_title="AI Misinformation Detector", layout="wide")
 
-# Load NLP model for text analysis
-nlp_pipeline = pipeline("text-classification", model="facebook/bart-large-mnli")
+# Load BERT + LSTM Model for Text Analysis
+class MisinformationModel(tf.keras.Model):
+    def __init__(self, bert_model):
+        super(MisinformationModel, self).__init__()
+        self.bert = bert_model
+        self.lstm = tf.keras.layers.LSTM(128, return_sequences=False)
+        self.dropout = tf.keras.layers.Dropout(0.3)
+        self.dense = tf.keras.layers.Dense(1, activation='sigmoid')
 
-# Image deepfake detection placeholder (Can be replaced with a trained deepfake model)
-def is_deepfake(image):
-    # Placeholder: Simulating deepfake detection
-    return torch.rand(1).item() > 0.5  # Random prediction for now
+    def call(self, inputs):
+        x = self.bert(inputs)[1]  # Pooled output
+        x = self.lstm(tf.expand_dims(x, axis=1))
+        x = self.dropout(x)
+        return self.dense(x)
 
-# Real-time credibility scoring (fetches from fact-checking sites)
-def get_credibility_score(text):
-    url = f"https://www.snopes.com/?s={text.replace(' ', '+')}"
+tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+bert_model = TFBertModel.from_pretrained("bert-base-uncased")
+misinfo_model = MisinformationModel(bert_model)
+misinfo_model.build(input_shape=(None, 128))
+
+def analyze_text(text):
+    tokens = tokenizer.encode(text, add_special_tokens=True, truncation=True, padding='max_length', max_length=128)
+    input_data = pad_sequences([tokens], maxlen=128, padding='post')
+    prediction = misinfo_model.predict(input_data)[0][0]
+    return "Reliable" if prediction < 0.5 else "Misleading"
+
+# Google Fact Check API Integration
+API_KEY = "YOUR_GOOGLE_FACT_CHECK_API_KEY"
+
+def get_fact_check_results(query):
+    url = f"https://factchecktools.googleapis.com/v1alpha1/claims:search?query={query}&key={API_KEY}"
     response = requests.get(url)
     if response.status_code == 200:
-        soup = BeautifulSoup(response.text, "html.parser")
-        results = soup.find_all("article", limit=1)
-        if results:
-            return f"Fact-check available: {results[0].find('a')['href']}"
-    return "No direct fact-check found."
+        results = response.json().get("claims", [])
+        return results if results else ["No fact checks found."]
+    return ["Error fetching fact-check results."]
+
+# AI-Powered Deepfake Detection for Images
+deepfake_model = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True)
+deepfake_model.eval()
+transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
+
+def detect_deepfake(image):
+    image = transform(image).unsqueeze(0)
+    with torch.no_grad():
+        prediction = deepfake_model(image).argmax().item()
+    return "Real" if prediction == 0 else "Deepfake Detected"
+
+# AI-Powered Deepfake Detection for Videos
+def detect_deepfake_video(video_path):
+    cap = cv2.VideoCapture(video_path)
+    frame_count, deepfake_frames = 0, 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame_count += 1
+        image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        if detect_deepfake(image) == "Deepfake Detected":
+            deepfake_frames += 1
+    cap.release()
+    return "Deepfake Detected" if deepfake_frames / frame_count > 0.5 else "Real"
 
 # Streamlit UI
-st.title("🔍 AI-Powered Misinformation Detection")
-
-# Sidebar for navigation
-st.sidebar.header("Choose Detection Type")
-option = st.sidebar.radio("Select Analysis Mode", ["Text Analysis", "Image Analysis"])
+st.title("🛡️ AI-Powered Misinformation Detection System")
+st.sidebar.title("🔍 Select Analysis Type")
+option = st.sidebar.radio("", ["Text Analysis", "Image Deepfake Detection", "Video Deepfake Detection", "Fact-Check"])
 
 if option == "Text Analysis":
-    st.subheader("📝 Text Misinformation Analysis")
-    user_text = st.text_area("Enter text to analyze:")
-    if st.button("Analyze"):
-        if user_text:
-            result = nlp_pipeline(user_text)
-            credibility = get_credibility_score(user_text)
-            st.write(f"🔍 **Analysis:** {result[0]['label']}")
-            st.write(f"📌 **Credibility Check:** {credibility}")
-        else:
-            st.warning("Please enter text.")
+    user_input = st.text_area("Enter text for misinformation detection:", "")
+    if st.button("Analyze Text"):
+        if user_input:
+            result = analyze_text(user_input)
+            st.success(f"Prediction: {result}")
 
-elif option == "Image Analysis":
-    st.subheader("🖼️ Deepfake Image Detection")
-    uploaded_file = st.file_uploader("Upload an image for analysis", type=["jpg", "png", "jpeg"])
-    if uploaded_file:
-        image = Image.open(uploaded_file)
+elif option == "Image Deepfake Detection":
+    uploaded_image = st.file_uploader("Upload an image:", type=["jpg", "png", "jpeg"])
+    if uploaded_image:
+        image = Image.open(uploaded_image)
         st.image(image, caption="Uploaded Image", use_column_width=True)
-        if st.button("Analyze Image"):
-            fake_status = "Deepfake Detected ❌" if is_deepfake(image) else "Authentic ✅"
-            st.write(f"🔍 **Result:** {fake_status}")
+        if st.button("Detect Deepfake"):
+            result = detect_deepfake(image)
+            st.success(f"Prediction: {result}")
 
-st.sidebar.info("🔬 Built using OpenAI, PyTorch, and BeautifulSoup.")
+elif option == "Video Deepfake Detection":
+    uploaded_video = st.file_uploader("Upload a video:", type=["mp4", "avi", "mov"])
+    if uploaded_video:
+        with open("temp_video.mp4", "wb") as f:
+            f.write(uploaded_video.read())
+        st.video("temp_video.mp4")
+        if st.button("Detect Deepfake"):
+            result = detect_deepfake_video("temp_video.mp4")
+            st.success(f"Prediction: {result}")
 
+elif option == "Fact-Check":
+    fact_check_query = st.text_input("Enter a statement to fact-check:")
+    if st.button("Get Fact Check Results"):
+        if fact_check_query:
+            results = get_fact_check_results(fact_check_query)
+            st.write("Fact-Check Results:")
+            for res in results:
+                st.write(f"- {res.get('text', 'No information available.')}")
