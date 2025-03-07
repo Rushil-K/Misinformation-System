@@ -1,10 +1,12 @@
 streamlit
 tensorflow
+keras==2.15  # ✅ Downgrades Keras to avoid compatibility issues
+tf-keras  # ✅ Provides compatibility for Transformers
 transformers
 torch
 torchvision
 deepface
-opencv-python-headless  # ✅ Fixes the OpenCV libGL issue
+opencv-python-headless  # ✅ Avoids OpenCV libGL issue
 numpy
 requests
 python-dotenv
