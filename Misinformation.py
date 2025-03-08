@@ -8,8 +8,13 @@ import requests
 import os
 import numpy as np
 from transformers import AutoTokenizer, AutoModel
-import cv2
 import onnxruntime
+
+# Try to import OpenCV, handle error if missing
+try:
+    import cv2
+except ImportError:
+    st.error("OpenCV (cv2) is not installed. Please install it using `pip install opencv-python`.")
 
 # Ensure necessary directories exist
 os.makedirs("models", exist_ok=True)
