@@ -3,12 +3,7 @@ requests
 torch
 transformers
 deepface
-newspaper3k
 validators
 pillow
-opencv-contrib-python
-tensorflow
-keras
+opencv-python-headless
 numpy
-scipy
-matplotlib
