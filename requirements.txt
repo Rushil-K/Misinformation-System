@@ -1,8 +1,7 @@
 streamlit
-pandas
-textblob
 transformers
 torch
-scikit-learn
-python-dotenv
+textblob
+sklearn
+pandas
 re
