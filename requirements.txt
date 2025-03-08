@@ -1,7 +1,7 @@
 streamlit
-tweepy
 pandas
 textblob
-aiohttp
-google-api-python-client
+transformers
+torch
+scikit-learn
 python-dotenv
