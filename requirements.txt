@@ -13,3 +13,13 @@ beautifulsoup4
 scikit-learn
 nltk
 deepface
+streamlit
+tensorflow
+torch
+torchvision
+transformers
+onnxruntime
+opencv-python
+Pillow
+numpy
+requests
