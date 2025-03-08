@@ -62,6 +62,7 @@ def analyze_credibility(text):
     return credibility_score, sentiment
 
 # Function to check facts using Google Fact Check API
+@st.cache_data
 def check_facts(query):
     # Make a call to the Google Fact Check API
     request = fact_check_service.claims().search(query=query, languageCode='en')
@@ -72,10 +73,20 @@ def check_facts(query):
             return claims[0]['textualRating'], claims[0]['claimReviewDate']
     return "No fact check found", None
 
+# Function to fetch tweets using the Twitter API
+@st.cache_data
+def fetch_tweets(user_id, num_posts):
+    tweets = client.get_users_tweets(
+        id=user_id,
+        max_results=num_posts,
+        tweet_fields=["created_at", "public_metrics"]
+    )
+    return tweets
+
 # X Post Analysis
 if analysis_type == "X Post":
     username = st.text_input("Enter X username (without @)")
-    num_posts = st.slider("Number of posts to analyze", 1, 100, 10)
+    num_posts = st.slider("Number of posts to analyze", 1, 20, 10)
     
     if st.button("Analyze X Posts"):
         if username:
@@ -86,11 +97,7 @@ if analysis_type == "X Post":
                     user_id = user.data.id
                     
                     # Fetch recent tweets
-                    tweets = client.get_users_tweets(
-                        id=user_id,
-                        max_results=num_posts,
-                        tweet_fields=["created_at", "public_metrics"]
-                    )
+                    tweets = fetch_tweets(user_id, num_posts)
                     
                     if tweets.data:
                         results = []
@@ -142,12 +149,6 @@ elif analysis_type == "Text":
             score, sentiment = analyze_credibility(cleaned_text)
             st.write(f"Credibility Score: {score}%")
             st.write(f"Sentiment: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
-            
-            # Fact-check the input text
-            fact_check_result, fact_check_date = check_facts(cleaned_text)
-            st.write(f"Fact Check: {fact_check_result}")
-            if fact_check_date:
-                st.write(f"Fact Check Date: {fact_check_date}")
             
             if score < 50:
                 st.error("High likelihood of misinformation")
