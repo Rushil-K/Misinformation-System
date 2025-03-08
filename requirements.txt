@@ -4,3 +4,4 @@ torch
 textblob
 pandas
 openai
+requests
