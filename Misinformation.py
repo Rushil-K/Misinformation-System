@@ -1,9 +1,8 @@
 import streamlit as st
-import re
 from transformers import pipeline
-from textblob import TextBlob
 from datetime import datetime
-import torch
+import re
+from textblob import TextBlob
 
 # Streamlit app setup
 st.set_page_config(page_title="Misinformation & AI Text Detection", page_icon="🧐", layout="wide")
@@ -38,11 +37,12 @@ def analyze_credibility(text):
     
     return credibility_score, sentiment
 
-# Load Misinformation Detection Model from Hugging Face
-misinformation_model = pipeline("text-classification", model="roberta-base-openai-detector", device=0 if torch.cuda.is_available() else -1)
+# Load GPT-2 Output Detector (use a better model if available)
+# This model is a simpler solution for detecting AI-generated text
+ai_detector = pipeline("text-classification", model="openai-gpt2-output-detector", device=0 if torch.cuda.is_available() else -1)
 
-# Load Hugging Face’s GPT-2 Model for AI Detection (We will use available models like `distilbert-base-uncased` for simplicity)
-ai_detector = pipeline("text-classification", model="distilbert-base-uncased", device=0 if torch.cuda.is_available() else -1)
+# Load Fake News Detection Model (RoBERTa or a BERT-based model)
+misinformation_model = pipeline("text-classification", model="roberta-base-openai-detector", device=0 if torch.cuda.is_available() else -1)
 
 # Function to check misinformation
 def check_misinformation(text):
