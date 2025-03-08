@@ -18,3 +18,4 @@ python-dotenv
 textblob
 pandas
 google-api-python-client
+aiohttp
