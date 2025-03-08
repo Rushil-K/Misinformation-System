@@ -1,7 +1,9 @@
 streamlit
-transformers
-torch
-textblob
-pandas
-openai
 requests
+torch
+transformers
+deepface
+newspaper3k
+validators
+pillow
+opencv-python
