@@ -3,6 +3,7 @@ from transformers import pipeline
 from textblob import TextBlob
 import re
 from datetime import datetime
+import openai
 import torch
 
 # Streamlit app setup
@@ -63,39 +64,57 @@ def check_ai_generated(text, model):
 
 # Main Function to run the analysis
 def main():
-    if analysis_type == "Text":
-        text_input = st.text_area("Enter text to analyze", height=200)
+    # Get OpenAI API key input
+    openai_api_key = st.text_input("Enter your OpenAI API Key", type="password")
+    
+    if openai_api_key:
+        try:
+            # Validate API key by making a request to OpenAI (to confirm it's valid)
+            openai.api_key = openai_api_key
+            openai.Completion.create(
+                engine="text-davinci-003",
+                prompt="Hello, OpenAI!",
+                max_tokens=5
+            )
+            st.success("OpenAI API key loaded successfully!")
+        except Exception as e:
+            st.error(f"Failed to load OpenAI API key: {str(e)}")
 
-        if st.button("Analyze Text"):
-            if text_input:
-                # Clean the input text
-                cleaned_text = clean_text(text_input)
+    # Proceed with text analysis if the OpenAI API key is validated
+    if openai_api_key:
+        if analysis_type == "Text":
+            text_input = st.text_area("Enter text to analyze", height=200)
 
-                # Load models
-                misinformation_model, ai_detector_model = load_models()
+            if st.button("Analyze Text"):
+                if text_input:
+                    # Clean the input text
+                    cleaned_text = clean_text(text_input)
 
-                # Check for AI-generated text
-                ai_label, ai_confidence = check_ai_generated(cleaned_text, ai_detector_model)
+                    # Load models
+                    misinformation_model, ai_detector_model = load_models()
 
-                # Check for misinformation
-                misinformation_label, misinformation_confidence = check_misinformation(cleaned_text, misinformation_model)
+                    # Check for AI-generated text
+                    ai_label, ai_confidence = check_ai_generated(cleaned_text, ai_detector_model)
 
-                # Analyze sentiment and credibility
-                credibility_score, sentiment = analyze_credibility(cleaned_text)
+                    # Check for misinformation
+                    misinformation_label, misinformation_confidence = check_misinformation(cleaned_text, misinformation_model)
 
-                # Display results
-                st.write(f"**AI Detection Result**: {ai_label} (Confidence: {ai_confidence:.2f})")
-                st.write(f"**Misinformation Detection Result**: {misinformation_label} (Confidence: {misinformation_confidence:.2f})")
-                st.write(f"**Credibility Score**: {credibility_score}%")
-                st.write(f"**Sentiment**: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
+                    # Analyze sentiment and credibility
+                    credibility_score, sentiment = analyze_credibility(cleaned_text)
 
-                # Provide alerts based on results
-                if ai_label == "LABEL_1" and ai_confidence > 0.75:  # LABEL_1 indicates AI-generated text
-                    st.warning("⚠️ This content appears to be AI-generated!")
-                elif misinformation_label == "misinformation" and misinformation_confidence > 0.75:  # Misinformation label
-                    st.error("⚠️ This content is likely misinformation!")
-                else:
-                    st.success("✅ This content appears credible.")
+                    # Display results
+                    st.write(f"**AI Detection Result**: {ai_label} (Confidence: {ai_confidence:.2f})")
+                    st.write(f"**Misinformation Detection Result**: {misinformation_label} (Confidence: {misinformation_confidence:.2f})")
+                    st.write(f"**Credibility Score**: {credibility_score}%")
+                    st.write(f"**Sentiment**: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
+
+                    # Provide alerts based on results
+                    if ai_label == "LABEL_1" and ai_confidence > 0.75:  # LABEL_1 indicates AI-generated text
+                        st.warning("⚠️ This content appears to be AI-generated!")
+                    elif misinformation_label == "misinformation" and misinformation_confidence > 0.75:  # Misinformation label
+                        st.error("⚠️ This content is likely misinformation!")
+                    else:
+                        st.success("✅ This content appears credible.")
 
     # Footer
     st.write("---")
