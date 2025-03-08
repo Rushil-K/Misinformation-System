@@ -3,6 +3,7 @@ from transformers import pipeline
 from datetime import datetime
 import re
 from textblob import TextBlob
+import os
 
 # Streamlit app setup
 st.set_page_config(page_title="Misinformation & AI Text Detection", page_icon="🧐", layout="wide")
@@ -11,7 +12,16 @@ st.markdown("""
 This app detects misinformation and identifies AI-generated text using open-source models and NLP tools.
 """)
 
-# Sidebar for analysis options
+# Sidebar for API Key input
+st.sidebar.header("API Key Configuration")
+api_key = st.sidebar.text_input("Enter your API Key (for AI Detection Model)", type="password")
+
+# Check if the API Key is provided
+if not api_key:
+    st.warning("Please enter a valid API Key to proceed.")
+    st.stop()
+
+# Option to select analysis type
 st.sidebar.header("Analysis Options")
 analysis_type = st.sidebar.radio("Select Analysis Type", ["Text"])
 
@@ -37,23 +47,31 @@ def analyze_credibility(text):
     
     return credibility_score, sentiment
 
-# Load GPT-2 Output Detector (use a better model if available)
-# This model is a simpler solution for detecting AI-generated text
-ai_detector = pipeline("text-classification", model="openai-gpt2-output-detector", device=0 if torch.cuda.is_available() else -1)
+# Load GPT-2 Output Detector (for AI-generated text detection)
+@st.cache_resource
+def load_ai_detector(api_key):
+    # Here, you can integrate an API key for loading a model or use a local model.
+    # For simplicity, we use a pre-trained model from Hugging Face
+    ai_detector = pipeline("text-classification", model="openai-gpt2-output-detector", device=0 if torch.cuda.is_available() else -1)
+    return ai_detector
 
 # Load Fake News Detection Model (RoBERTa or a BERT-based model)
-misinformation_model = pipeline("text-classification", model="roberta-base-openai-detector", device=0 if torch.cuda.is_available() else -1)
+@st.cache_resource
+def load_misinformation_model(api_key):
+    # Here, you can integrate an API key for loading a model or use a local model.
+    misinformation_model = pipeline("text-classification", model="roberta-base-openai-detector", device=0 if torch.cuda.is_available() else -1)
+    return misinformation_model
 
 # Function to check misinformation
-def check_misinformation(text):
-    result = misinformation_model(text)
+def check_misinformation(text, model):
+    result = model(text)
     label = result[0]['label']
     confidence = result[0]['score']
     return label, confidence
 
 # Function to check AI-generated text
-def check_ai_generated(text):
-    result = ai_detector(text)
+def check_ai_generated(text, model):
+    result = model(text)
     label = result[0]['label']
     confidence = result[0]['score']
     return label, confidence
@@ -67,11 +85,15 @@ def main():
             if text_input:
                 cleaned_text = clean_text(text_input)
                 
+                # Load models for analysis
+                ai_detector = load_ai_detector(api_key)
+                misinformation_model = load_misinformation_model(api_key)
+                
                 # Check for AI-generated text
-                ai_label, ai_confidence = check_ai_generated(cleaned_text)
+                ai_label, ai_confidence = check_ai_generated(cleaned_text, ai_detector)
                 
                 # Check for misinformation
-                misinformation_label, misinformation_confidence = check_misinformation(cleaned_text)
+                misinformation_label, misinformation_confidence = check_misinformation(cleaned_text, misinformation_model)
                 
                 # Analyze sentiment and credibility score
                 score, sentiment = analyze_credibility(cleaned_text)
