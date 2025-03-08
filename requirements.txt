@@ -13,3 +13,7 @@ beautifulsoup4
 scikit-learn
 nltk
 deepface
+tweepy
+python-dotenv
+textblob
+pandas
