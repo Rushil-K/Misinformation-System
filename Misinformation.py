@@ -3,9 +3,11 @@ import tweepy
 import pandas as pd
 from textblob import TextBlob
 import re
-from datetime import datetime
 import os
+import asyncio
+import aiohttp
 from dotenv import load_dotenv
+from datetime import datetime
 from googleapiclient.discovery import build
 
 # Load environment variables
@@ -19,7 +21,7 @@ ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 
 # Google Fact Check API credentials
-FACT_CHECK_API_KEY = os.getenv("FACT_CHECK_API_KEY")  # You should store your Google Fact Check API key here
+FACT_CHECK_API_KEY = os.getenv("FACT_CHECK_API_KEY")
 fact_check_service = build("factchecktools", "v1alpha1", developerKey=FACT_CHECK_API_KEY)
 
 # Initialize Twitter API client
@@ -61,21 +63,20 @@ def analyze_credibility(text):
     
     return credibility_score, sentiment
 
-# Function to check facts using Google Fact Check API
-@st.cache_data
-def check_facts(query):
-    # Make a call to the Google Fact Check API
-    request = fact_check_service.claims().search(query=query, languageCode='en')
-    response = request.execute()
-    if 'claims' in response:
-        claims = response['claims']
-        if claims:
-            return claims[0]['textualRating'], claims[0]['claimReviewDate']
-    return "No fact check found", None
+# Async function to check facts using Google Fact Check API
+async def check_facts_async(query):
+    async with aiohttp.ClientSession() as session:
+        url = f"https://factchecktools.googleapis.com/v1alpha1/claims:search?query={query}&key={FACT_CHECK_API_KEY}"
+        async with session.get(url) as response:
+            response_data = await response.json()
+            if 'claims' in response_data:
+                claims = response_data['claims']
+                if claims:
+                    return claims[0]['textualRating'], claims[0]['claimReviewDate']
+            return "No fact check found", None
 
 # Function to fetch tweets using the Twitter API
-@st.cache_data
-def fetch_tweets(user_id, num_posts):
+async def fetch_tweets_async(user_id, num_posts):
     tweets = client.get_users_tweets(
         id=user_id,
         max_results=num_posts,
@@ -83,7 +84,7 @@ def fetch_tweets(user_id, num_posts):
     )
     return tweets
 
-# X Post Analysis
+# X Post Analysis (Async Version)
 if analysis_type == "X Post":
     username = st.text_input("Enter X username (without @)")
     num_posts = st.slider("Number of posts to analyze", 1, 20, 10)
@@ -96,8 +97,8 @@ if analysis_type == "X Post":
                 if user.data:
                     user_id = user.data.id
                     
-                    # Fetch recent tweets
-                    tweets = fetch_tweets(user_id, num_posts)
+                    # Asynchronous tweet fetching
+                    tweets = await fetch_tweets_async(user_id, num_posts)
                     
                     if tweets.data:
                         results = []
@@ -105,8 +106,8 @@ if analysis_type == "X Post":
                             cleaned_text = clean_text(tweet.text)
                             score, sentiment = analyze_credibility(cleaned_text)
                             
-                            # Fact-check the tweet
-                            fact_check_result, fact_check_date = check_facts(cleaned_text)
+                            # Asynchronous fact-checking
+                            fact_check_result, fact_check_date = await check_facts_async(cleaned_text)
                             
                             results.append({
                                 "Text": cleaned_text,
