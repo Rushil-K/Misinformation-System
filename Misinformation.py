@@ -1,76 +1,91 @@
 import streamlit as st
-import os
-import cv2
+import torch
+import torch.nn as nn
+from transformers import AutoTokenizer, AutoModel
 import numpy as np
-import tensorflow as tf
+import lime.lime_text
 import requests
-from deepface import DeepFace
-from transformers import pipeline
+import pandas as pd
 
-# -------------------- Load Misinformation Model --------------------
-MODEL_PATH = "lstm_model.h5"
+# -------------------- Load Model & Tokenizer --------------------
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+MODEL_PATH = "hybrid_bert_lstm.pth"
+
+class HybridBERTLSTM(nn.Module):
+    def __init__(self, hidden_dim=128, num_classes=6):
+        super(HybridBERTLSTM, self).__init__()
+        self.bert = AutoModel.from_pretrained('bert-base-uncased')
+        self.lstm = nn.LSTM(768, hidden_dim, batch_first=True, bidirectional=True)
+        self.fc = nn.Linear(hidden_dim * 2, num_classes)
+
+    def forward(self, input_ids, attention_mask):
+        with torch.no_grad():
+            bert_output = self.bert(input_ids=input_ids, attention_mask=attention_mask)
+        lstm_out, _ = self.lstm(bert_output.last_hidden_state)
+        return self.fc(lstm_out[:, -1, :])  # Last LSTM output
 
 @st.cache_resource
-def load_misinformation_model():
+def load_model():
+    model = HybridBERTLSTM().to(DEVICE)
     if not os.path.exists(MODEL_PATH):
-        url = "https://github.com/Rushil-K/Misinformation-System/raw/main/lstm_model.h5"  # Update with actual URL
+        url = "https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO/raw/main/hybrid_bert_lstm.pth"
         response = requests.get(url)
         with open(MODEL_PATH, "wb") as f:
             f.write(response.content)
-    return tf.keras.models.load_model(MODEL_PATH)
+    model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    model.eval()
+    return model
 
-model = load_misinformation_model()
-
-# -------------------- NLP Pipeline for Text Analysis --------------------
 @st.cache_resource
-def load_nlp_pipeline():
-    return pipeline("text-classification", model="nlptown/bert-base-multilingual-uncased-sentiment")
+def load_tokenizer():
+    return AutoTokenizer.from_pretrained('bert-base-uncased')
 
-nlp_pipeline = load_nlp_pipeline()
+model = load_model()
+tokenizer = load_tokenizer()
 
-def analyze_text(text):
-    prediction = nlp_pipeline(text)
-    return prediction[0]["label"]
+# -------------------- Data Preprocessing --------------------
+LABELS = ["False", "Half-True", "Mostly-True", "True", "Barely-True", "Pants-on-Fire"]
 
-# -------------------- Deepfake Detection --------------------
-def detect_deepfake(image):
-    try:
-        result = DeepFace.analyze(image, actions=['emotion'], enforce_detection=False)
-        return result
-    except Exception as e:
-        return str(e)
+def predict(text):
+    inputs = tokenizer(text, padding=True, truncation=True, return_tensors="pt").to(DEVICE)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    return LABELS[torch.argmax(outputs, dim=1).item()]
+
+# -------------------- LIME Explainability --------------------
+def lime_explanation(text):
+    explainer = lime.lime_text.LimeTextExplainer(class_names=LABELS)
+
+    def predictor(texts):
+        return np.array([model(**tokenizer(t, padding=True, truncation=True, return_tensors="pt").to(DEVICE))[0].cpu().numpy() for t in texts])
+
+    exp = explainer.explain_instance(text, predictor, num_features=10)
+    return exp.as_html()
 
 # -------------------- Streamlit UI --------------------
-st.title("🛡️ AI-Powered Misinformation Detection System")
+st.title("📰 AI-Powered Fake News Detection")
+st.write("🚀 Analyzing statements for misinformation using **Hybrid BERT + LSTM**.")
 
-tab1, tab2, tab3 = st.tabs(["🔍 Text Analysis", "🖼️ Deepfake Detection", "ℹ️ About"])
+tab1, tab2 = st.tabs(["🔍 News Analysis", "📊 Explainability"])
 
-# Text Analysis Tab
 with tab1:
-    st.header("📜 Text Misinformation Detection")
-    text_input = st.text_area("Enter text to analyze:")
-    if st.button("Analyze Text"):
+    st.header("📜 Enter a News Statement")
+    text_input = st.text_area("Paste your news statement here:")
+    if st.button("Analyze News"):
         if text_input:
-            result = analyze_text(text_input)
-            st.success(f"Prediction: {result}")
+            prediction = predict(text_input)
+            st.success(f"🛑 Prediction: **{prediction}**")
         else:
-            st.warning("Please enter some text.")
+            st.warning("⚠️ Please enter a valid statement.")
 
-# Deepfake Detection Tab
 with tab2:
-    st.header("📸 Deepfake Detection")
-    uploaded_file = st.file_uploader("Upload an image:", type=["jpg", "png", "jpeg"])
-    if uploaded_file is not None:
-        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
-        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
-        st.image(image, caption="Uploaded Image", use_column_width=True)
-        if st.button("Analyze Image"):
-            result = detect_deepfake(image)
-            st.write(result)
-
-# About Tab
-with tab3:
-    st.header("ℹ️ About")
-    st.write("This open-source misinformation detection system uses NLP and AI to detect misleading claims and deepfakes.")
+    st.header("📊 LIME Explainability")
+    text_explain = st.text_area("Enter text to explain model decision:")
+    if st.button("Generate Explanation"):
+        if text_explain:
+            explanation = lime_explanation(text_explain)
+            st.components.v1.html(explanation, height=600)
+        else:
+            st.warning("⚠️ Please enter a valid text.")
 
 st.write("💡 Created with ❤️ by [Your Name]")
