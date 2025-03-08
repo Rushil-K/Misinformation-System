@@ -1,12 +1,10 @@
 streamlit
-tensorflow
-keras
-tf-keras
 transformers
+tensorflow
 torch
-torchvision
-deepface
-opencv-python-headless # Fixes libGL.so.1 error
+opencv-python
 numpy
 requests
+Pillow
 python-dotenv
+google-api-python-client
