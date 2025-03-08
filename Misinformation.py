@@ -41,8 +41,8 @@ def analyze_credibility(text):
 # Load Misinformation Detection Model from Hugging Face
 misinformation_model = pipeline("text-classification", model="roberta-base-openai-detector", device=0 if torch.cuda.is_available() else -1)
 
-# Load GPT-2 Output Detector for AI Detection
-ai_detector = pipeline("text-classification", model="huggingface/gpt2-output-detector", device=0 if torch.cuda.is_available() else -1)
+# Load Hugging Face’s GPT-2 Model for AI Detection (We will use available models like `distilbert-base-uncased` for simplicity)
+ai_detector = pipeline("text-classification", model="distilbert-base-uncased", device=0 if torch.cuda.is_available() else -1)
 
 # Function to check misinformation
 def check_misinformation(text):
