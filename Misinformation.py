@@ -11,12 +11,18 @@ from transformers import AutoTokenizer, AutoModel
 import cv2
 import onnxruntime
 
+# Ensure necessary directories exist
+os.makedirs("models", exist_ok=True)
+
 # Define paths
-MODEL_PATH = "lstm_model.h5"
-DEEPFAKE_MODEL_PATH = "deepfake_detector.onnx"
+MODEL_PATH = "models/lstm_model.h5"
+DEEPFAKE_MODEL_PATH = "models/deepfake_detector.onnx"
 
 # Load NLP Model
 def load_text_model():
+    if not os.path.exists(MODEL_PATH):
+        st.error("Text model file not found.")
+        return None
     return tf.keras.models.load_model(MODEL_PATH)
 
 # Load Tokenizer
@@ -25,10 +31,15 @@ def load_tokenizer():
 
 # Load Deepfake Detection Model
 def load_deepfake_model():
+    if not os.path.exists(DEEPFAKE_MODEL_PATH):
+        st.error("Deepfake model file not found.")
+        return None
     return onnxruntime.InferenceSession(DEEPFAKE_MODEL_PATH)
 
 # Process Text Input
 def analyze_text(model, tokenizer, text):
+    if model is None:
+        return "Error: Model not loaded."
     tokens = tokenizer(text, return_tensors='tf', padding=True, truncation=True, max_length=512)
     prediction = model.predict(tokens['input_ids'])
     labels = ['False', 'Half-True', 'Mostly-True', 'True', 'Barely-True', 'Pants-on-Fire']
@@ -36,6 +47,8 @@ def analyze_text(model, tokenizer, text):
 
 # Process Image for Deepfake Detection
 def analyze_image(model, image):
+    if model is None:
+        return "Error: Model not loaded."
     transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
     image = transform(image).unsqueeze(0).numpy()
     result = model.run(None, {model.get_inputs()[0].name: image})
