@@ -20,7 +20,7 @@ except ImportError:
 os.makedirs("models", exist_ok=True)
 
 # Define paths
-MODEL_PATH = "models/lstm_model.h5"
+MODEL_PATH = "lstm_model.h5"
 DEEPFAKE_MODEL_PATH = "models/deepfake_detector.onnx"
 
 # Load NLP Model
