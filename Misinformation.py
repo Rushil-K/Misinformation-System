@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 import os
 from dotenv import load_dotenv
+from googleapiclient.discovery import build
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +17,10 @@ API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
+
+# Google Fact Check API credentials
+FACT_CHECK_API_KEY = os.getenv("FACT_CHECK_API_KEY")  # You should store your Google Fact Check API key here
+fact_check_service = build("factchecktools", "v1alpha1", developerKey=FACT_CHECK_API_KEY)
 
 # Initialize Twitter API client
 client = tweepy.Client(
@@ -56,6 +61,17 @@ def analyze_credibility(text):
     
     return credibility_score, sentiment
 
+# Function to check facts using Google Fact Check API
+def check_facts(query):
+    # Make a call to the Google Fact Check API
+    request = fact_check_service.claims().search(query=query, languageCode='en')
+    response = request.execute()
+    if 'claims' in response:
+        claims = response['claims']
+        if claims:
+            return claims[0]['textualRating'], claims[0]['claimReviewDate']
+    return "No fact check found", None
+
 # X Post Analysis
 if analysis_type == "X Post":
     username = st.text_input("Enter X username (without @)")
@@ -81,12 +97,18 @@ if analysis_type == "X Post":
                         for tweet in tweets.data:
                             cleaned_text = clean_text(tweet.text)
                             score, sentiment = analyze_credibility(cleaned_text)
+                            
+                            # Fact-check the tweet
+                            fact_check_result, fact_check_date = check_facts(cleaned_text)
+                            
                             results.append({
                                 "Text": cleaned_text,
                                 "Score": score,
                                 "Sentiment": sentiment,
                                 "Date": tweet.created_at,
-                                "Likes": tweet.public_metrics["like_count"]
+                                "Likes": tweet.public_metrics["like_count"],
+                                "Fact Check": fact_check_result,
+                                "Fact Check Date": fact_check_date
                             })
                         
                         # Display results
@@ -120,6 +142,12 @@ elif analysis_type == "Text":
             score, sentiment = analyze_credibility(cleaned_text)
             st.write(f"Credibility Score: {score}%")
             st.write(f"Sentiment: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
+            
+            # Fact-check the input text
+            fact_check_result, fact_check_date = check_facts(cleaned_text)
+            st.write(f"Fact Check: {fact_check_result}")
+            if fact_check_date:
+                st.write(f"Fact Check Date: {fact_check_date}")
             
             if score < 50:
                 st.error("High likelihood of misinformation")
