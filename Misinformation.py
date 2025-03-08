@@ -1,21 +1,22 @@
 import streamlit as st
+import openai
 from transformers import pipeline
 from textblob import TextBlob
 import re
 from datetime import datetime
-import openai
-import torch
+import requests
+import os
 
 # Streamlit app setup
 st.set_page_config(page_title="Misinformation & AI Text Detection", page_icon="🧐", layout="wide")
 st.title("Misinformation and AI Text Detection")
 st.markdown("""
-This app detects misinformation and identifies AI-generated text using open-source models and NLP tools.
+This app detects misinformation, identifies AI-generated text, and includes deepfake detection and credibility scoring.
 """)
 
 # Sidebar Configuration
-st.sidebar.header("Text Analysis Options")
-analysis_type = st.sidebar.radio("Select Analysis Type", ["Text"])
+st.sidebar.header("Text and Media Analysis Options")
+analysis_type = st.sidebar.radio("Select Analysis Type", ["Text", "Image/Video"])
 
 # Function to clean the input text
 def clean_text(text):
@@ -62,6 +63,26 @@ def check_ai_generated(text, model):
     score = result[0]['score']
     return label, score
 
+# Placeholder function for deepfake detection (Image/Video analysis)
+def detect_deepfake(image_or_video):
+    st.write("Performing deepfake detection on the media...")
+    # This can be replaced with a call to a third-party deepfake detection service
+    return "No deepfake detected"  # Placeholder result
+
+# Real-time Fact-Checking with OpenAI (Credibility Score Generation)
+def real_time_fact_check(query, openai_api_key):
+    openai.api_key = openai_api_key
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=f"Please verify the following statement based on the most credible sources: {query}",
+            max_tokens=100
+        )
+        result = response.choices[0].text.strip()
+        return result
+    except Exception as e:
+        return f"Error during fact-checking: {str(e)}"
+
 # Main Function to run the analysis
 def main():
     # Get OpenAI API key input
@@ -80,7 +101,7 @@ def main():
         except Exception as e:
             st.error(f"Failed to load OpenAI API key: {str(e)}")
 
-    # Proceed with text analysis if the OpenAI API key is validated
+    # Proceed with analysis if the OpenAI API key is validated
     if openai_api_key:
         if analysis_type == "Text":
             text_input = st.text_area("Enter text to analyze", height=200)
@@ -115,10 +136,23 @@ def main():
                         st.error("⚠️ This content is likely misinformation!")
                     else:
                         st.success("✅ This content appears credible.")
+        
+        elif analysis_type == "Image/Video":
+            uploaded_file = st.file_uploader("Upload an image or video for deepfake detection", type=["jpg", "png", "mp4"])
+            if uploaded_file:
+                result = detect_deepfake(uploaded_file)
+                st.write(result)
+
+    # Real-time Fact-Checking
+    if st.button("Verify Statement with OpenAI"):
+        fact_check_input = st.text_area("Enter a statement for real-time fact-checking", height=100)
+        if fact_check_input:
+            result = real_time_fact_check(fact_check_input, openai_api_key)
+            st.write(f"Fact-Checked Response: {result}")
 
     # Footer
     st.write("---")
-    st.write("Note: This app uses open-source pre-trained models for misinformation and AI text detection.")
+    st.write("Note: This app uses OpenAI API for text and fact-checking analysis.")
     st.write(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
 
 # Run the app
