@@ -1,9 +1,9 @@
 streamlit
-requests
 torch
 transformers
-deepface
-validators
-pillow
-opencv-python-headless
+Pillow
 numpy
+opencv-python
+requests
+validators
+deepface
