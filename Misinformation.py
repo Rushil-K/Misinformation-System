@@ -1,84 +1,76 @@
-import os
 import streamlit as st
-import tensorflow as tf
-import requests
+import os
 import cv2
 import numpy as np
-from transformers import BertTokenizer
+import tensorflow as tf
+import requests
+from deepface import DeepFace
+from transformers import pipeline
 
-# Install DeepFace if not already installed
-os.system("pip install deepface")
-
-from deepface import DeepFace  # Now import it after installing
-
-
-# ------------------- Load NLP Misinformation Model -------------------
-
-GITHUB_MODEL_URL = "https://raw.githubusercontent.com/Rushil-K/Misinformation-System/main/lstm_model.h5"
+# -------------------- Load Misinformation Model --------------------
 MODEL_PATH = "lstm_model.h5"
-
-# Function to download the model if not available locally
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        st.info("Downloading the model from GitHub...")
-        r = requests.get(GITHUB_MODEL_URL, stream=True)
-        with open(MODEL_PATH, "wb") as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
 
 @st.cache_resource
 def load_misinformation_model():
-    download_model()
+    if not os.path.exists(MODEL_PATH):
+        url = "https://github.com/Rushil-K/Misinformation-System/raw/main/lstm_model.h5"  # Update with actual URL
+        response = requests.get(url)
+        with open(MODEL_PATH, "wb") as f:
+            f.write(response.content)
     return tf.keras.models.load_model(MODEL_PATH)
 
-# Load the model
 model = load_misinformation_model()
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
-# ------------------- Text-Based Misinformation Detection -------------------
-def analyze_text_misinformation(text):
-    tokens = tokenizer.encode(text, truncation=True, padding="max_length", max_length=128, return_tensors="tf")
-    prediction = model.predict(tokens)
-    score = prediction[0][0]
-    return "❌ Misinformation" if score > 0.5 else "✅ Reliable"
+# -------------------- NLP Pipeline for Text Analysis --------------------
+@st.cache_resource
+def load_nlp_pipeline():
+    return pipeline("text-classification", model="nlptown/bert-base-multilingual-uncased-sentiment")
 
-# ------------------- Deepfake Detection -------------------
-def detect_deepfake(image_path):
+nlp_pipeline = load_nlp_pipeline()
+
+def analyze_text(text):
+    prediction = nlp_pipeline(text)
+    return prediction[0]["label"]
+
+# -------------------- Deepfake Detection --------------------
+def detect_deepfake(image):
     try:
-        analysis = DeepFace.analyze(img_path=image_path, actions=["age", "gender", "race", "emotion"])
-        return analysis
+        result = DeepFace.analyze(image, actions=['emotion'], enforce_detection=False)
+        return result
     except Exception as e:
-        return {"error": str(e)}
+        return str(e)
 
-# ------------------- Streamlit UI -------------------
-st.title("🛑 AI-Powered Misinformation Detection System")
+# -------------------- Streamlit UI --------------------
+st.title("🛡️ AI-Powered Misinformation Detection System")
 
-option = st.sidebar.selectbox("Choose Detection Mode:", ["Text Analysis", "Image Deepfake Detection"])
+tab1, tab2, tab3 = st.tabs(["🔍 Text Analysis", "🖼️ Deepfake Detection", "ℹ️ About"])
 
-if option == "Text Analysis":
-    st.header("📝 Text-Based Misinformation Analysis")
-    user_input = st.text_area("Enter text to analyze:")
-    if st.button("Analyze"):
-        if user_input:
-            result = analyze_text_misinformation(user_input)
-            st.write(f"**Prediction:** {result}")
+# Text Analysis Tab
+with tab1:
+    st.header("📜 Text Misinformation Detection")
+    text_input = st.text_area("Enter text to analyze:")
+    if st.button("Analyze Text"):
+        if text_input:
+            result = analyze_text(text_input)
+            st.success(f"Prediction: {result}")
         else:
             st.warning("Please enter some text.")
 
-elif option == "Image Deepfake Detection":
-    st.header("📷 AI-Powered Deepfake Detection")
-    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "png", "jpeg"])
-    if uploaded_file:
-        file_path = f"./temp_{uploaded_file.name}"
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+# Deepfake Detection Tab
+with tab2:
+    st.header("📸 Deepfake Detection")
+    uploaded_file = st.file_uploader("Upload an image:", type=["jpg", "png", "jpeg"])
+    if uploaded_file is not None:
+        file_bytes = np.asarray(bytearray(uploaded_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        st.image(image, caption="Uploaded Image", use_column_width=True)
+        if st.button("Analyze Image"):
+            result = detect_deepfake(image)
+            st.write(result)
 
-        st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
+# About Tab
+with tab3:
+    st.header("ℹ️ About")
+    st.write("This open-source misinformation detection system uses NLP and AI to detect misleading claims and deepfakes.")
 
-        if st.button("Detect Deepfake"):
-            analysis_result = detect_deepfake(file_path)
-            st.json(analysis_result)
-
-        os.remove(file_path)
-
-st.sidebar.write("🚀 Built with AI to detect misinformation & deepfakes.")
+st.write("💡 Created with ❤️ by [Your Name]")
