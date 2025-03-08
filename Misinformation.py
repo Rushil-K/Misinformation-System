@@ -4,7 +4,7 @@ import numpy as np
 from transformers import AutoTokenizer
 
 # Define paths
-MODEL_PATH = "models/lstm_model.h5"
+MODEL_PATH = "lstm_model.h5"
 
 # Load NLP Model
 @st.cache_resource
