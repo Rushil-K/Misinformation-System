@@ -84,88 +84,94 @@ async def fetch_tweets_async(user_id, num_posts):
     )
     return tweets
 
-# X Post Analysis (Async Version)
-if analysis_type == "X Post":
-    username = st.text_input("Enter X username (without @)")
-    num_posts = st.slider("Number of posts to analyze", 1, 20, 10)
-    
-    if st.button("Analyze X Posts"):
-        if username:
-            try:
-                # Get user ID
-                user = client.get_user(username=username)
-                if user.data:
-                    user_id = user.data.id
-                    
-                    # Asynchronous tweet fetching
-                    tweets = await fetch_tweets_async(user_id, num_posts)
-                    
-                    if tweets.data:
-                        results = []
-                        for tweet in tweets.data:
-                            cleaned_text = clean_text(tweet.text)
-                            score, sentiment = analyze_credibility(cleaned_text)
-                            
-                            # Asynchronous fact-checking
-                            fact_check_result, fact_check_date = await check_facts_async(cleaned_text)
-                            
-                            results.append({
-                                "Text": cleaned_text,
-                                "Score": score,
-                                "Sentiment": sentiment,
-                                "Date": tweet.created_at,
-                                "Likes": tweet.public_metrics["like_count"],
-                                "Fact Check": fact_check_result,
-                                "Fact Check Date": fact_check_date
-                            })
-                        
-                        # Display results
-                        df = pd.DataFrame(results)
-                        st.write("Analysis Results:")
-                        st.dataframe(df)
-                        
-                        # Summary
-                        avg_score = df["Score"].mean()
-                        if avg_score < 50:
-                            st.error(f"Average Credibility Score: {avg_score:.2f}% - High likelihood of misinformation")
-                        elif avg_score < 75:
-                            st.warning(f"Average Credibility Score: {avg_score:.2f}% - Possible misinformation")
+# Main async function to run the analysis
+async def main():
+    # X Post Analysis (Async Version)
+    if analysis_type == "X Post":
+        username = st.text_input("Enter X username (without @)")
+        num_posts = st.slider("Number of posts to analyze", 1, 20, 10)
+
+        if st.button("Analyze X Posts"):
+            if username:
+                try:
+                    # Get user ID
+                    user = client.get_user(username=username)
+                    if user.data:
+                        user_id = user.data.id
+
+                        # Asynchronous tweet fetching
+                        tweets = await fetch_tweets_async(user_id, num_posts)
+
+                        if tweets.data:
+                            results = []
+                            for tweet in tweets.data:
+                                cleaned_text = clean_text(tweet.text)
+                                score, sentiment = analyze_credibility(cleaned_text)
+
+                                # Asynchronous fact-checking
+                                fact_check_result, fact_check_date = await check_facts_async(cleaned_text)
+
+                                results.append({
+                                    "Text": cleaned_text,
+                                    "Score": score,
+                                    "Sentiment": sentiment,
+                                    "Date": tweet.created_at,
+                                    "Likes": tweet.public_metrics["like_count"],
+                                    "Fact Check": fact_check_result,
+                                    "Fact Check Date": fact_check_date
+                                })
+
+                            # Display results
+                            df = pd.DataFrame(results)
+                            st.write("Analysis Results:")
+                            st.dataframe(df)
+
+                            # Summary
+                            avg_score = df["Score"].mean()
+                            if avg_score < 50:
+                                st.error(f"Average Credibility Score: {avg_score:.2f}% - High likelihood of misinformation")
+                            elif avg_score < 75:
+                                st.warning(f"Average Credibility Score: {avg_score:.2f}% - Possible misinformation")
+                            else:
+                                st.success(f"Average Credibility Score: {avg_score:.2f}% - Content appears credible")
                         else:
-                            st.success(f"Average Credibility Score: {avg_score:.2f}% - Content appears credible")
+                            st.error("No posts found for this user")
                     else:
-                        st.error("No posts found for this user")
-                else:
-                    st.error("User not found")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
-        else:
-            st.warning("Please enter a username")
-
-# Text Analysis
-elif analysis_type == "Text":
-    text_input = st.text_area("Enter text to analyze", height=200)
-    if st.button("Analyze Text"):
-        if text_input:
-            cleaned_text = clean_text(text_input)
-            score, sentiment = analyze_credibility(cleaned_text)
-            st.write(f"Credibility Score: {score}%")
-            st.write(f"Sentiment: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
-            
-            if score < 50:
-                st.error("High likelihood of misinformation")
-            elif score < 75:
-                st.warning("Possible misinformation detected")
+                        st.error("User not found")
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
             else:
-                st.success("Content appears credible")
+                st.warning("Please enter a username")
 
-# URL Analysis (placeholder)
-elif analysis_type == "URL":
-    st.write("URL analysis not implemented in this demo. Would require external fact-checking API integration.")
+    # Text Analysis
+    elif analysis_type == "Text":
+        text_input = st.text_area("Enter text to analyze", height=200)
+        if st.button("Analyze Text"):
+            if text_input:
+                cleaned_text = clean_text(text_input)
+                score, sentiment = analyze_credibility(cleaned_text)
+                st.write(f"Credibility Score: {score}%")
+                st.write(f"Sentiment: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
 
-# Footer
-st.write("---")
-st.write("Note: This uses Twitter API v2 with basic analysis. For production use:")
-st.write("- Add machine learning models")
-st.write("- Integrate fact-checking APIs")
-st.write("- Enhance credibility scoring")
-st.write(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
+                if score < 50:
+                    st.error("High likelihood of misinformation")
+                elif score < 75:
+                    st.warning("Possible misinformation detected")
+                else:
+                    st.success("Content appears credible")
+
+    # URL Analysis (placeholder)
+    elif analysis_type == "URL":
+        st.write("URL analysis not implemented in this demo. Would require external fact-checking API integration.")
+
+    # Footer
+    st.write("---")
+    st.write("Note: This uses Twitter API v2 with basic analysis. For production use:")
+    st.write("- Add machine learning models")
+    st.write("- Integrate fact-checking APIs")
+    st.write("- Enhance credibility scoring")
+    st.write(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
+
+# Run the async function inside Streamlit
+if __name__ == "__main__":
+    asyncio.run(main())
