@@ -1,56 +1,141 @@
 import streamlit as st
-import tensorflow as tf
-import numpy as np
+import tweepy
+import pandas as pd
+from textblob import TextBlob
+import re
+from datetime import datetime
 import os
-from transformers import AutoTokenizer
+from dotenv import load_dotenv
 
-# Ensure necessary directories exist
-os.makedirs("models", exist_ok=True)
+# Load environment variables
+load_dotenv()
 
-# Define model path
-MODEL_PATH = "lstm_model.h5"
+# Twitter API credentials (you'll need to set these in a .env file)
+BEARER_TOKEN = os.getenv("BEARER_TOKEN")
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
+ACCESS_TOKEN_SECRET = os.getenv("ACCESS_TOKEN_SECRET")
 
-# Load NLP Model
-@st.cache_resource
-def load_text_model():
-    if not os.path.exists(MODEL_PATH):
-        st.error("Error: Text model file not found.")
-        return None
-    return tf.keras.models.load_model(MODEL_PATH)
+# Initialize Twitter API client
+client = tweepy.Client(
+    bearer_token=BEARER_TOKEN,
+    consumer_key=API_KEY,
+    consumer_secret=API_SECRET,
+    access_token=ACCESS_TOKEN,
+    access_token_secret=ACCESS_TOKEN_SECRET
+)
 
-# Load Tokenizer
-@st.cache_resource
-def load_tokenizer():
-    return AutoTokenizer.from_pretrained("bert-base-uncased")
+# Streamlit app setup
+st.title("Misinformation Detection App")
+st.write("Analyze social media content for potential misinformation")
 
-# Process Text Input
-def analyze_text(model, tokenizer, text):
-    if model is None:
-        return "Error: Model not loaded."
+# Sidebar
+st.sidebar.header("Analysis Options")
+analysis_type = st.sidebar.radio("Analysis Type", ["X Post", "Text", "URL"])
 
-    # Tokenize input text
-    tokens = tokenizer(text, return_tensors='tf', padding=True, truncation=True, max_length=512)
+# Function to clean text
+def clean_text(text):
+    text = re.sub(r'http\S+|www\S+|https\S+', '', text, flags=re.MULTILINE)
+    text = re.sub(r'@\w+|\#', '', text)
+    return text.strip()
 
-    # Convert tokenized input into embeddings (to match LSTM input shape)
-    embedding_layer = tf.keras.layers.Embedding(input_dim=30522, output_dim=128)
-    embedded_input = embedding_layer(tokens["input_ids"])
-
-    # Ensure input is 3D: (batch_size, timesteps, features)
-    embedded_input = tf.reshape(embedded_input, (embedded_input.shape[0], embedded_input.shape[1], 128))
-
-    # Get prediction
-    prediction = model.predict(embedded_input)
-    labels = ['False', 'Half-True', 'Mostly-True', 'True', 'Barely-True', 'Pants-on-Fire']
+# Function to analyze credibility
+def analyze_credibility(text):
+    blob = TextBlob(text)
+    sentiment = blob.sentiment.polarity
+    credibility_score = 100
     
-    return labels[np.argmax(prediction)]
+    # Basic checks
+    if text.isupper() or "!!!" in text:
+        credibility_score -= 20
+    if any(word in text.lower() for word in ["always", "never", "every", "all"]):
+        credibility_score -= 15
+    if len(text.split()) < 10:
+        credibility_score -= 10  # Short posts might lack context
+    
+    return credibility_score, sentiment
 
-# Streamlit UI
-st.title("Misinformation Text Analysis")
+# X Post Analysis
+if analysis_type == "X Post":
+    username = st.text_input("Enter X username (without @)")
+    num_posts = st.slider("Number of posts to analyze", 1, 100, 10)
+    
+    if st.button("Analyze X Posts"):
+        if username:
+            try:
+                # Get user ID
+                user = client.get_user(username=username)
+                if user.data:
+                    user_id = user.data.id
+                    
+                    # Fetch recent tweets
+                    tweets = client.get_users_tweets(
+                        id=user_id,
+                        max_results=num_posts,
+                        tweet_fields=["created_at", "public_metrics"]
+                    )
+                    
+                    if tweets.data:
+                        results = []
+                        for tweet in tweets.data:
+                            cleaned_text = clean_text(tweet.text)
+                            score, sentiment = analyze_credibility(cleaned_text)
+                            results.append({
+                                "Text": cleaned_text,
+                                "Score": score,
+                                "Sentiment": sentiment,
+                                "Date": tweet.created_at,
+                                "Likes": tweet.public_metrics["like_count"]
+                            })
+                        
+                        # Display results
+                        df = pd.DataFrame(results)
+                        st.write("Analysis Results:")
+                        st.dataframe(df)
+                        
+                        # Summary
+                        avg_score = df["Score"].mean()
+                        if avg_score < 50:
+                            st.error(f"Average Credibility Score: {avg_score:.2f}% - High likelihood of misinformation")
+                        elif avg_score < 75:
+                            st.warning(f"Average Credibility Score: {avg_score:.2f}% - Possible misinformation")
+                        else:
+                            st.success(f"Average Credibility Score: {avg_score:.2f}% - Content appears credible")
+                    else:
+                        st.error("No posts found for this user")
+                else:
+                    st.error("User not found")
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+        else:
+            st.warning("Please enter a username")
 
-user_input = st.text_area("Enter text to analyze:")
+# Text Analysis
+elif analysis_type == "Text":
+    text_input = st.text_area("Enter text to analyze", height=200)
+    if st.button("Analyze Text"):
+        if text_input:
+            cleaned_text = clean_text(text_input)
+            score, sentiment = analyze_credibility(cleaned_text)
+            st.write(f"Credibility Score: {score}%")
+            st.write(f"Sentiment: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
+            
+            if score < 50:
+                st.error("High likelihood of misinformation")
+            elif score < 75:
+                st.warning("Possible misinformation detected")
+            else:
+                st.success("Content appears credible")
 
-if st.button("Analyze Text"):
-    text_model = load_text_model()
-    tokenizer = load_tokenizer()
-    result = analyze_text(text_model, tokenizer, user_input)
-    st.write(f"Prediction: {result}")
+# URL Analysis (placeholder)
+elif analysis_type == "URL":
+    st.write("URL analysis not implemented in this demo. Would require external fact-checking API integration.")
+
+# Footer
+st.write("---")
+st.write("Note: This uses Twitter API v2 with basic analysis. For production use:")
+st.write("- Add machine learning models")
+st.write("- Integrate fact-checking APIs")
+st.write("- Enhance credibility scoring")
+st.write(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
