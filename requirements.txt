@@ -6,4 +6,9 @@ deepface
 newspaper3k
 validators
 pillow
-opencv-python
+opencv-contrib-python
+tensorflow
+keras
+numpy
+scipy
+matplotlib
