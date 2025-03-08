@@ -9,7 +9,7 @@ import pandas as pd
 import os
 # -------------------- Load Model & Tokenizer --------------------
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-MODEL_PATH = "hybrid_bert_lstm.pth"
+MODEL_PATH = "lstm_model.h5"
 
 class HybridBERTLSTM(nn.Module):
     def __init__(self, hidden_dim=128, num_classes=6):
@@ -28,7 +28,7 @@ class HybridBERTLSTM(nn.Module):
 def load_model():
     model = HybridBERTLSTM().to(DEVICE)
     if not os.path.exists(MODEL_PATH):
-        url = "https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO/raw/main/hybrid_bert_lstm.pth"
+        url = "https://github.com/Rushil-K/Misinformation-System/raw/main/lstm_model.h5"
         response = requests.get(url)
         with open(MODEL_PATH, "wb") as f:
             f.write(response.content)
