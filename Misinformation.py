@@ -1,11 +1,16 @@
+import os
 import streamlit as st
 import tensorflow as tf
 import requests
-import os
 import cv2
 import numpy as np
 from transformers import BertTokenizer
-from deepface import DeepFace
+
+# Install DeepFace if not already installed
+os.system("pip install deepface")
+
+from deepface import DeepFace  # Now import it after installing
+
 
 # ------------------- Load NLP Misinformation Model -------------------
 
