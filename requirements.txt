@@ -6,6 +6,6 @@ numpy
 opencv-python
 requests
 validators
-deepface
-tensorflow==2.16.0
+tensorflow
 tf-keras
+deepface
