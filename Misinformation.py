@@ -46,7 +46,9 @@ def analyze_text(model, tokenizer, text):
     if model is None:
         return "Error: Model not loaded."
     tokens = tokenizer(text, return_tensors='tf', padding=True, truncation=True, max_length=512)
-    prediction = model.predict(tokens['input_ids'])
+    input_ids = tokens['input_ids']
+    input_ids = tf.reshape(input_ids, (input_ids.shape[0], input_ids.shape[1], 1))  # Ensure correct shape for LSTM
+    prediction = model.predict(input_ids)
     labels = ['False', 'Half-True', 'Mostly-True', 'True', 'Barely-True', 'Pants-on-Fire']
     return labels[np.argmax(prediction)]
 
