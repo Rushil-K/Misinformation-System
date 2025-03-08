@@ -1,20 +1,15 @@
 import streamlit as st
-import pandas as pd
 import re
-from textblob import TextBlob
 from transformers import pipeline
-from dotenv import load_dotenv
+from textblob import TextBlob
 from datetime import datetime
 import torch
 
-# Load environment variables (if needed)
-load_dotenv()
-
 # Streamlit app setup
-st.set_page_config(page_title="Misinformation Detection", page_icon="🧐", layout="wide")
-st.title("Misinformation Detection with Open Source Models")
+st.set_page_config(page_title="Misinformation & AI Text Detection", page_icon="🧐", layout="wide")
+st.title("Misinformation and AI Text Detection")
 st.markdown("""
-This app detects misinformation and performs sentiment analysis using open-source models and NLP tools.
+This app detects misinformation and identifies AI-generated text using open-source models and NLP tools.
 """)
 
 # Sidebar for analysis options
@@ -46,9 +41,19 @@ def analyze_credibility(text):
 # Load Misinformation Detection Model from Hugging Face
 misinformation_model = pipeline("text-classification", model="roberta-base-openai-detector", device=0 if torch.cuda.is_available() else -1)
 
+# Load GPT-2 Output Detector for AI Detection
+ai_detector = pipeline("text-classification", model="huggingface/gpt2-output-detector", device=0 if torch.cuda.is_available() else -1)
+
 # Function to check misinformation
 def check_misinformation(text):
     result = misinformation_model(text)
+    label = result[0]['label']
+    confidence = result[0]['score']
+    return label, confidence
+
+# Function to check AI-generated text
+def check_ai_generated(text):
+    result = ai_detector(text)
     label = result[0]['label']
     confidence = result[0]['score']
     return label, confidence
@@ -62,26 +67,32 @@ def main():
             if text_input:
                 cleaned_text = clean_text(text_input)
                 
+                # Check for AI-generated text
+                ai_label, ai_confidence = check_ai_generated(cleaned_text)
+                
                 # Check for misinformation
-                label, confidence = check_misinformation(cleaned_text)
+                misinformation_label, misinformation_confidence = check_misinformation(cleaned_text)
                 
                 # Analyze sentiment and credibility score
                 score, sentiment = analyze_credibility(cleaned_text)
                 
                 # Display results
-                st.write(f"**Misinformation Detection Result**: {label} (Confidence: {confidence:.2f})")
+                st.write(f"**AI Detection Result**: {ai_label} (Confidence: {ai_confidence:.2f})")
+                st.write(f"**Misinformation Detection Result**: {misinformation_label} (Confidence: {misinformation_confidence:.2f})")
                 st.write(f"**Credibility Score**: {score}%")
                 st.write(f"**Sentiment**: {sentiment:.2f} (-1 negative, 0 neutral, 1 positive)")
 
                 # Provide alerts based on results
-                if label == "LABEL_1" and confidence > 0.75:  # 'LABEL_1' indicates misinformation
+                if ai_label == "LABEL_1" and ai_confidence > 0.75:  # 'LABEL_1' indicates AI-generated text
+                    st.warning("⚠️ This content appears to be AI-generated!")
+                elif misinformation_label == "LABEL_1" and misinformation_confidence > 0.75:  # Misinformation label
                     st.error("⚠️ This content is likely misinformation!")
                 else:
                     st.success("✅ This content appears credible.")
 
     # Footer
     st.write("---")
-    st.write("Note: This app uses an open-source pre-trained model for misinformation detection.")
+    st.write("Note: This app uses open-source pre-trained models for misinformation and AI text detection.")
     st.write(f"Current date: {datetime.now().strftime('%Y-%m-%d')}")
 
 # Run the app
