@@ -4,7 +4,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 from PIL import Image
 import numpy as np
 import requests
-from Deepface import DeepFace
+from deepface import deepFace
 import validators
 import os
 
