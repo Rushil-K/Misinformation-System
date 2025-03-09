@@ -3,9 +3,10 @@ torch
 transformers
 Pillow
 numpy
-opencv-python
+opencv-python-headless
 requests
 validators
 tensorflow
 tf-keras
 deepface
+asyncio
