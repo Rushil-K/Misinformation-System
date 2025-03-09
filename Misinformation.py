@@ -5,7 +5,24 @@ import numpy as np
 import cv2
 from deepface import DeepFace
 import validators
-import time
+import asyncio
+
+# Fix asyncio event loop issue
+try:
+    asyncio.get_running_loop()
+except RuntimeError:
+    asyncio.run(asyncio.sleep(0))
+
+# Ensure OpenCV loads correctly
+try:
+    cv2.imshow
+except ImportError:
+    st.error("⚠ OpenCV failed to load due to missing libGL.so.1. Install it using:\n"
+             "`sudo apt-get install -y libgl1-mesa-glx` (Ubuntu) or `sudo yum install -y mesa-libGL` (CentOS)")
+
+# Check if Torch is available
+device = "cuda" if torch.cuda.is_available() else "cpu"
+st.sidebar.info(f"Using PyTorch on: `{device}`")
 
 # Load the AI-generated text detection model
 @st.cache_resource
@@ -74,4 +91,3 @@ if uploaded_image:
 # Footer
 st.markdown("---")
 st.caption("🔍 Powered by Hugging Face & DeepFace | Open Source Misinformation Detector")
-
