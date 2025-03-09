@@ -1,12 +1,9 @@
 streamlit
 torch
+torchvision
+torchaudio
 transformers
-Pillow
-numpy
 opencv-python-headless
-requests
-validators
-tensorflow
-tf-keras
+numpy
 deepface
 asyncio
