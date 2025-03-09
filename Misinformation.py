@@ -1,30 +1,30 @@
-import streamlit as st
-import torch
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-import numpy as np
-import cv2
-from deepface import DeepFace
-import validators
 import asyncio
 
-# Fix asyncio event loop issue
+# Fix asyncio event loop issue in Streamlit
 try:
     asyncio.get_running_loop()
 except RuntimeError:
-    asyncio.run(asyncio.sleep(0))
+    asyncio.set_event_loop(asyncio.new_event_loop())
+
+import streamlit as st
+import torch
+import cv2
+import numpy as np
+from deepface import DeepFace
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 # Ensure OpenCV loads correctly
 try:
-    cv2.imshow
+    cv2.imread
 except ImportError:
-    st.error("⚠ OpenCV failed to load due to missing libGL.so.1. Install it using:\n"
-             "`sudo apt-get install -y libgl1-mesa-glx` (Ubuntu) or `sudo yum install -y mesa-libGL` (CentOS)")
+    st.error("⚠ OpenCV failed to load due to missing libGL.so.1. Run:\n"
+             "`sudo apt-get install -y libgl1-mesa-glx`")
 
-# Check if Torch is available
+# Check for CUDA availability
 device = "cuda" if torch.cuda.is_available() else "cpu"
 st.sidebar.info(f"Using PyTorch on: `{device}`")
 
-# Load the AI-generated text detection model
+# Load AI-generated text detection model
 @st.cache_resource
 def load_text_model():
     model_name = "roberta-base-openai-detector"
@@ -87,6 +87,11 @@ if uploaded_image:
     if st.button("Analyze Image"):
         result = detect_deepfake(image)
         st.write("Deepfake Analysis Result:", result)
+
+# Torch test button
+if st.sidebar.button("Run Torch Test"):
+    tensor = torch.tensor([1.0, 2.0, 3.0], device=device)
+    st.sidebar.write(f"Tensor created: {tensor}")
 
 # Footer
 st.markdown("---")
