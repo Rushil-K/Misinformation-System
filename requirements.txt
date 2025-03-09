@@ -1,8 +1,8 @@
 opencv-python-headless
- requests
- validators
- deepface
- tensorflow==2.16.0
- tensorflow
- tf-keras
- deepface
+requests
+validators
+deepface
+tensorflow
+tensorflow
+tf-keras
+deepface
