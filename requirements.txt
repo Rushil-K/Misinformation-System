@@ -1,8 +1,9 @@
-opencv-python-headless
+streamlit
+torch
+transformers
+Pillow
+numpy
 requests
+deepface
 validators
-deepface
-tensorflow
-tensorflow
-tf-keras
-deepface
+opencv-python-headless
